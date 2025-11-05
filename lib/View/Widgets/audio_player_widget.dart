@@ -1,18 +1,18 @@
-import 'dart:developer';
-
 import 'package:elevate/Model/music_item.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../Controller/BottomBar_Controller.dart';
-import '../../utils/responsive_helper.dart';
 import 'full_audio_player.dart';
 
 class AudioPlayerWidget extends StatefulWidget {
   final List<MusicItem> musicList;
   final List<MusicItem> binauralList;
 
-  const AudioPlayerWidget(
-      {super.key, required this.musicList, required this.binauralList});
+  const AudioPlayerWidget({
+    super.key,
+    required this.musicList,
+    required this.binauralList,
+  });
 
   @override
   State<AudioPlayerWidget> createState() => _AudioPlayerWidgetState();
@@ -25,8 +25,6 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
   @override
   void initState() {
     super.initState();
-    final BottomBarController bottomBarController =
-        Get.put(BottomBarController());
     bottomBarController.setAllMusic(widget.musicList);
     bottomBarController.setAllBinaural(widget.binauralList);
   }
@@ -34,281 +32,576 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
   @override
   Widget build(BuildContext context) {
     return Obx(() {
-      if (!bottomBarController.isBinauralPlaying.value &&
-          !bottomBarController.isMusicPlaying.value) {
-        return const SizedBox.shrink(); // Hide when nothing is playing
+      // Only show player when actively playing (not just when played before)
+      final isPlaying = bottomBarController.isBinauralPlaying.value ||
+          bottomBarController.isMusicPlaying.value;
+
+      if (!isPlaying) {
+        return const SizedBox.shrink();
       }
 
-      const double _miniPlayerHeight = 96;
-      if (bottomBarController.isBinauralPlaying.value) {
-        return SizedBox(
-          height: _miniPlayerHeight,
-          child: _buildPlayer(
-            "binaural",
-            Colors.purple.shade700,
-            bottomBarController.binauralVolume,
-            bottomBarController.setBinauralVolume,
-            bottomBarController.stopBinaural,
-            bottomBarController.binauralTrack.value,
-            bottomBarController.binauralPosition.value,
-            bottomBarController.binauralDuration.value,
-            () => bottomBarController.toggleBinauralPlayback(),
-            () => bottomBarController.previousBinauralTrack(),
-            () => bottomBarController.nextBinauralTrack(),
-            (position) => bottomBarController.seekBinaural(position),
+      const double _cardHeight = 130; // Increased height to prevent overflow
+      final bool showMusic = bottomBarController.isMusicSelected.value;
+      final Color activeBg = showMusic
+          ? Colors.blue.shade700
+          : Colors.purple.shade700;
+
+      return Container(
+        height: _cardHeight,
+        width: double.infinity,
+        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: activeBg,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: Stack(
+            children: [
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Horizontal toggle switch at the top
+                  Container(
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.2),
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(16),
+                        topRight: Radius.circular(16),
+                      ),
+                    ),
+                    child: ClipRect(
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          GestureDetector(
+                            onTap: bottomBarController.selectBinaural,
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 180),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: !showMusic
+                                    ? Colors.white.withOpacity(0.35)
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                'BINAURAL',
+                                style: TextStyle(
+                                  color: !showMusic ? Colors.white : Colors.white70,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 10,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          GestureDetector(
+                            onTap: bottomBarController.selectMusic,
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 180),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: showMusic
+                                    ? Colors.white.withOpacity(0.35)
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                'MUSIC',
+                                style: TextStyle(
+                                  color: showMusic ? Colors.white : Colors.white70,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 10,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  // Track info
+                  showMusic
+                      ? _MusicMiniPlayerInfo(controller: bottomBarController)
+                      : _BinauralMiniPlayerInfo(
+                          controller: bottomBarController,
+                        ),
+                  // Progress bar and volume bar inside the card
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 1),
+                    child: showMusic
+                        ? _MusicMiniPlayerControls(controller: bottomBarController)
+                        : _BinauralMiniPlayerControls(
+                            controller: bottomBarController,
+                          ),
+                  ),
+                ],
+              ),
+              // Close button in top right corner - closes both players
+              Positioned(
+                top: 4,
+                right: 4,
+                child: InkWell(
+                  onTap: () {
+                    // Stop both music and binaural players
+                    bottomBarController.stopMusic();
+                    bottomBarController.stopBinaural();
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.3),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.close,
+                      color: Colors.white70,
+                      size: 16,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
-        );
-      }
-
-      return SizedBox(
-        height: _miniPlayerHeight,
-        child: _buildPlayer(
-          "music",
-          Colors.blue.shade800,
-          bottomBarController.musicVolume,
-          bottomBarController.setMusicVolume,
-          bottomBarController.stopMusic,
-          bottomBarController.musicTrack.value,
-          bottomBarController.musicPosition.value,
-          bottomBarController.musicDuration.value,
-          () => bottomBarController.toggleMusicPlayback(),
-          () => bottomBarController.previousMusicTrack(),
-          () => bottomBarController.nextMusicTrack(),
-          (position) => bottomBarController.seekMusic(position),
         ),
       );
     });
   }
+}
 
-  Widget _buildPlayer(
-    String label,
-    Color backgroundColor,
-    RxDouble volume,
-    Function(double) setVolume,
-    Function() stop,
-    String track,
-    Duration position,
-    Duration duration,
-    Function() togglePlayPause,
-    Function() previous,
-    Function() next,
-    Function(Duration) seek,
-  ) {
-    if (track.isEmpty) {
-      return const Center(
-        child: Text(
-          "Track not available",
-          style: TextStyle(color: Colors.white),
-        ),
-      );
-    }
+class _MusicMiniPlayerInfo extends StatelessWidget {
+  final BottomBarController controller;
 
-    final BottomBarController controller = Get.find();
-    final positionText =
-        Get.find<BottomBarController>().formatDuration(position);
-    final durationText =
-        Get.find<BottomBarController>().formatDuration(duration);
-    final isPlaying = label == 'binaural'
-        ? Get.find<BottomBarController>().isBinauralPlaying.value
-        : Get.find<BottomBarController>().isMusicPlaying.value;
+  const _MusicMiniPlayerInfo({required this.controller});
 
+  @override
+  Widget build(BuildContext context) {
     return Container(
-      decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: BorderRadius.circular(0),
-      ),
-      padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-      child: ResponsiveCenter(
-        maxWidth: 800,
-        child: Row(
-          mainAxisSize: MainAxisSize.max,
-          children: [
-            // Vertical Label & Image
-            Expanded(
-              flex: 1,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  RotatedBox(
-                    quarterTurns: -1,
-                    child: Text(
-                      label.toUpperCase(),
-                      style: const TextStyle(
-                        fontSize: 8,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
+      color: Colors.black.withOpacity(0.2),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Music',
+                  style: TextStyle(
+                    fontSize: 8,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blue.shade300,
+                  ),
+                ),
+                const SizedBox(height: 1),
+                Obx(() {
+                  if (controller.musicPlaylists.isEmpty) {
+                    return const Text(
+                      'No tracks',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 9,
                       ),
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(4),
-                    child: Image.asset(
-                      'assets/images/Elevate Logo White.png',
-                      height: 16,
-                      width: 16,
-                      fit: BoxFit.cover,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // Song details & Slider
-            Expanded(
-              flex: 4,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Expanded(
-                    child: Obx(() {
-                      final currentTrack = label == 'binaural'
-                          ? controller.binauralPlaylists[
-                              controller.currentBinauralIndex.value]
-                          : controller.musicPlaylists[
-                              controller.currentMusicIndex.value];
-                      log("Current Track: ${currentTrack.title}");
-
-                      return Text(
-                        currentTrack.title,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                        maxLines: 1,
-                      );
-                    }),
-                  ),
-                  const Text(
-                    "Frequency Tuning",
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    );
+                  }
+                  
+                  final index = controller.currentMusicIndex.value < controller.musicPlaylists.length
+                      ? controller.currentMusicIndex.value
+                      : 0;
+                  final currentTrack = controller.musicPlaylists[index];
+                  return Text(
+                    currentTrack.title,
                     style: TextStyle(
-                      fontSize: 7,
-                      color: Colors.white70,
+                      color: controller.isMusicPlaying.value
+                          ? Colors.white
+                          : Colors.white70,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w500,
                     ),
                     overflow: TextOverflow.ellipsis,
-                  ),
-                  Row(
-                    children: [
-                      Text(
-                        positionText,
-                        style: const TextStyle(
-                          fontSize: 6,
-                          color: Colors.white70,
-                        ),
-                      ),
-                      Expanded(
-                        child: Slider(
-                          value: position.inSeconds.toDouble(),
-                          min: 0,
-                          max: duration.inSeconds > 0
-                              ? duration.inSeconds.toDouble()
-                              : 1,
-                          onChanged: (value) {
-                            seek(Duration(seconds: value.toInt()));
-                          },
-                          activeColor: Colors.white,
-                          inactiveColor: Colors.white30,
-                        ),
-                      ),
-                      Text(
-                        durationText,
-                        style: const TextStyle(
-                          fontSize: 6,
-                          color: Colors.white70,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+                    maxLines: 1,
+                  );
+                }),
+              ],
             ),
-
-            // Playback Controls & Close Button
-            Expanded(
-              flex: 2,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      InkWell(
-                        onTap: () => previous(),
-                        child: const Icon(Icons.skip_previous,
-                            color: Colors.white, size: 18),
-                      ),
-                      const SizedBox(width: 1),
-                      InkWell(
-                        onTap: () => togglePlayPause(),
-                        child: Icon(isPlaying ? Icons.pause : Icons.play_arrow,
-                            color: Colors.white, size: 16),
-                      ),
-                      const SizedBox(width: 1),
-                      InkWell(
-                        onTap: () => next(),
-                        child: const Icon(Icons.skip_next,
-                            color: Colors.white, size: 18),
-                      ),
-                      const SizedBox(width: 1),
-                      InkWell(
-                        onTap: stop,
-                        child: const Icon(Icons.close,
-                            color: Colors.red, size: 18),
-                      ),
-                      const SizedBox(width: 1),
-                      InkWell(
-                        onTap: () {
-                          Get.to(() => FullAudioPlayerScreen(
-                                isBinaural: label == 'binaural',
-                                track: track,
-                              ));
-                        },
-                        child: const Icon(Icons.fullscreen,
-                            color: Colors.white, size: 18),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Expanded(
-                        child: SizedBox(
-                          height: 16,
-                          child: Slider(
-                            value: volume.value,
-                            onChanged: setVolume,
-                            min: 0,
-                            max: 1,
-                            activeColor: Colors.white,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 2),
-                      InkWell(
-                        onTap: () {
-                          setVolume(volume.value > 0 ? 0 : 0.5);
-                        },
-                        child: Icon(
-                          volume.value == 0
-                              ? Icons.volume_off
-                              : Icons.volume_up,
-                          color: Colors.white,
-                          size: 14,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 }
+class _MusicMiniPlayerControls extends StatelessWidget {
+  final BottomBarController controller;
+
+  const _MusicMiniPlayerControls({required this.controller});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Progress bar row
+        Row(
+          children: [
+            InkWell(
+              onTap: () {
+                if (controller.musicPlaylists.isEmpty) return;
+                
+                if (controller.isMusicPlaying.value) {
+                  controller.toggleMusicPlayback();
+                } else if (controller.musicTrack.value.isNotEmpty) {
+                  controller.toggleMusicPlayback();
+                } else {
+                  final index = controller.currentMusicIndex.value < controller.musicPlaylists.length
+                      ? controller.currentMusicIndex.value
+                      : 0;
+                  final track = controller.musicPlaylists[index];
+                  controller.playMusic(track.fileUrl);
+                }
+              },
+              child: Obx(() {
+                final hasPlaylist = controller.musicPlaylists.isNotEmpty;
+                final isPlaying = controller.isMusicPlaying.value;
+                return Icon(
+                  !hasPlaylist
+                      ? Icons.music_note
+                      : isPlaying
+                          ? Icons.pause
+                          : Icons.play_arrow,
+                  color: hasPlaylist && isPlaying
+                      ? Colors.white
+                      : Colors.white70,
+                  size: 16,
+                );
+              }),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Obx(() {
+                if (!controller.hasMusicPlayed.value &&
+                    !controller.isMusicPlaying.value) {
+                  return const SizedBox.shrink();
+                }
+
+                final position = controller.musicPosition.value;
+                final duration = controller.musicDuration.value;
+
+                return Row(
+                  children: [
+                    Text(
+                      controller.formatDuration(position),
+                      style: const TextStyle(
+                        fontSize: 8,
+                        color: Colors.white70,
+                      ),
+                    ),
+                    Expanded(
+                      child: Slider(
+                        value: position.inSeconds.toDouble(),
+                        min: 0,
+                        max: duration.inSeconds > 0
+                            ? duration.inSeconds.toDouble()
+                            : 1,
+                        onChanged: (value) {
+                          controller.seekMusic(Duration(seconds: value.toInt()));
+                        },
+                        activeColor: Colors.blue.shade400,
+                        inactiveColor: Colors.white30,
+                      ),
+                    ),
+                    Text(
+                      controller.formatDuration(duration),
+                      style: const TextStyle(
+                        fontSize: 8,
+                        color: Colors.white70,
+                      ),
+                    ),
+                  ],
+                );
+              }),
+            ),
+            const SizedBox(width: 8),
+            InkWell(
+              onTap: () {
+                if (controller.musicTrack.value.isNotEmpty) {
+                  Get.to(() => FullAudioPlayerScreen(
+                        isBinaural: false,
+                        track: controller.musicTrack.value,
+                      ));
+                }
+              },
+              child: const Icon(
+                Icons.fullscreen,
+                color: Colors.white70,
+                size: 16,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 1),
+        // Volume control row
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            InkWell(
+              onTap: () {
+                controller.setMusicVolume(
+                    controller.musicVolume.value > 0 ? 0 : 0.5);
+              },
+              child: Icon(
+                controller.musicVolume.value == 0
+                    ? Icons.volume_off
+                    : Icons.volume_up,
+                color: Colors.white,
+                size: 12,
+              ),
+            ),
+            const SizedBox(width: 4),
+              SizedBox(
+                width: 80,
+                height: 10,
+                child: Slider(
+                value: controller.musicVolume.value,
+                onChanged: (value) {
+                  controller.setMusicVolume(value);
+                },
+                min: 0,
+                max: 1,
+                activeColor: Colors.blue.shade400,
+                inactiveColor: Colors.white30,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _BinauralMiniPlayerInfo extends StatelessWidget {
+  final BottomBarController controller;
+
+  const _BinauralMiniPlayerInfo({required this.controller});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: Colors.black.withOpacity(0.2),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Binaural',
+                  style: TextStyle(
+                    fontSize: 8,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.purple.shade300,
+                  ),
+                ),
+                const SizedBox(height: 1),
+                Obx(() {
+                  if (controller.binauralPlaylists.isEmpty) {
+                    return const Text(
+                      'No tracks',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 9,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    );
+                  }
+                  
+                  final index = controller.currentBinauralIndex.value < controller.binauralPlaylists.length
+                      ? controller.currentBinauralIndex.value
+                      : 0;
+                  final currentTrack = controller.binauralPlaylists[index];
+                  return Text(
+                    currentTrack.title,
+                    style: TextStyle(
+                      color: controller.isBinauralPlaying.value
+                          ? Colors.white
+                          : Colors.white70,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                  );
+                }),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BinauralMiniPlayerControls extends StatelessWidget {
+  final BottomBarController controller;
+
+  const _BinauralMiniPlayerControls({required this.controller});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Progress bar row
+        Row(
+          children: [
+            InkWell(
+              onTap: () {
+                if (controller.binauralPlaylists.isEmpty) return;
+                
+                if (controller.isBinauralPlaying.value) {
+                  controller.toggleBinauralPlayback();
+                } else if (controller.binauralTrack.value.isNotEmpty) {
+                  controller.toggleBinauralPlayback();
+                } else {
+                  final index = controller.currentBinauralIndex.value < controller.binauralPlaylists.length
+                      ? controller.currentBinauralIndex.value
+                      : 0;
+                  final track = controller.binauralPlaylists[index];
+                  controller.playBinaural(track.fileUrl);
+                }
+              },
+              child: Obx(() {
+                final hasPlaylist = controller.binauralPlaylists.isNotEmpty;
+                final isPlaying = controller.isBinauralPlaying.value;
+                return Icon(
+                  !hasPlaylist
+                      ? Icons.waves
+                      : isPlaying
+                          ? Icons.pause
+                          : Icons.play_arrow,
+                  color: hasPlaylist && isPlaying
+                      ? Colors.white
+                      : Colors.white70,
+                  size: 16,
+                );
+              }),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Obx(() {
+                if (!controller.hasBinauralPlayed.value &&
+                    !controller.isBinauralPlaying.value) {
+                  return const SizedBox.shrink();
+                }
+
+                final position = controller.binauralPosition.value;
+                final duration = controller.binauralDuration.value;
+
+                return Row(
+                  children: [
+                    Text(
+                      controller.formatDuration(position),
+                      style: const TextStyle(
+                        fontSize: 8,
+                        color: Colors.white70,
+                      ),
+                    ),
+                    Expanded(
+                      child: Slider(
+                        value: position.inSeconds.toDouble(),
+                        min: 0,
+                        max: duration.inSeconds > 0
+                            ? duration.inSeconds.toDouble()
+                            : 1,
+                        onChanged: (value) {
+                          controller.seekBinaural(
+                              Duration(seconds: value.toInt()));
+                        },
+                        activeColor: Colors.purple.shade400,
+                        inactiveColor: Colors.white30,
+                      ),
+                    ),
+                    Text(
+                      controller.formatDuration(duration),
+                      style: const TextStyle(
+                        fontSize: 8,
+                        color: Colors.white70,
+                      ),
+                    ),
+                  ],
+                );
+              }),
+            ),
+            const SizedBox(width: 8),
+            InkWell(
+              onTap: () {
+                if (controller.binauralTrack.value.isNotEmpty) {
+                  Get.to(() => FullAudioPlayerScreen(
+                        isBinaural: true,
+                        track: controller.binauralTrack.value,
+                      ));
+                }
+              },
+              child: const Icon(
+                Icons.fullscreen,
+                color: Colors.white70,
+                size: 16,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 1),
+        // Volume control row
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            InkWell(
+              onTap: () {
+                controller.setBinauralVolume(
+                    controller.binauralVolume.value > 0 ? 0 : 0.5);
+              },
+              child: Icon(
+                controller.binauralVolume.value == 0
+                    ? Icons.volume_off
+                    : Icons.volume_up,
+                color: Colors.white,
+                size: 12,
+              ),
+            ),
+            const SizedBox(width: 4),
+              SizedBox(
+                width: 80,
+                height: 10,
+                child: Slider(
+                value: controller.binauralVolume.value,
+                onChanged: (value) {
+                  controller.setBinauralVolume(value);
+                },
+                min: 0,
+                max: 1,
+                activeColor: Colors.purple.shade400,
+                inactiveColor: Colors.white30,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+

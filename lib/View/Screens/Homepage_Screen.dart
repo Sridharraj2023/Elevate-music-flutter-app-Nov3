@@ -387,14 +387,6 @@ class _HomePageState extends State<HomePage>
           ),
         ),
       ),
-      bottomNavigationBar: SafeArea(
-        top: false,
-        minimum: EdgeInsets.zero,
-        child: AudioPlayerWidget(
-          musicList: _musicItems2!,
-          binauralList: _binauralItems2!,
-        ),
-      ),
       // bottomNavigationBar: FutureBuilder<List<MusicItem>>(
       //   future: _musicItems,
       //   builder: (context, snapshot) {
@@ -425,68 +417,78 @@ class _HomePageState extends State<HomePage>
   // Home Tab Content
   Widget _buildHomeTab() {
     return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: 20),
-          const Text(
-            "Welcome! We're glad you're here.",
-            style: TextStyle(
-                fontSize: 20, fontWeight: FontWeight.w400, color: Colors.white),
-          ),
-          const SizedBox(height: 20),
-          const Text(
-            "New Binaural for You",
-            style: TextStyle(
-                fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
-          ),
-          const SizedBox(height: 10),
-          // MusicList(
-          //     items: _homeController.getBinauralMusicItems(), isBinaural: true),
-          const SizedBox(height: 20),
-          // const Text(
-          //   "Music for You",
-          //   style: TextStyle(
-          //       fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
-          // ),
-          // const SizedBox(height: 5),
-          // MusicList(items: _homeController.getMusicItems(), isBinaural: false),
-          FutureBuilder<List<MusicItem>>(
-            future: _binauralItems,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return Center(child: CircularProgressIndicator());
-              } else if (snapshot.hasError || snapshot.data!.isEmpty) {
-                return Center(
-                    child: Text("No music available",
-                        style: TextStyle(color: Colors.white)));
-              }
+      physics: const BouncingScrollPhysics(),
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 20), // Extra bottom padding
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 20),
+            const Text(
+              "Welcome! We're glad you're here.",
+              style: TextStyle(
+                  fontSize: 20, fontWeight: FontWeight.w400, color: Colors.white),
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              "New Binaural for You",
+              style: TextStyle(
+                  fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+            ),
+            const SizedBox(height: 10),
+            // MusicList(
+            //     items: _homeController.getBinauralMusicItems(), isBinaural: true),
+            const SizedBox(height: 20),
+            // const Text(
+            //   "Music for You",
+            //   style: TextStyle(
+            //       fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+            // ),
+            // const SizedBox(height: 5),
+            // MusicList(items: _homeController.getMusicItems(), isBinaural: false),
+            FutureBuilder<List<MusicItem>>(
+              future: _binauralItems,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return Center(child: CircularProgressIndicator());
+                } else if (snapshot.hasError || snapshot.data!.isEmpty) {
+                  return Center(
+                      child: Text("No music available",
+                          style: TextStyle(color: Colors.white)));
+                }
 
-              return MusicList(items: snapshot.data!, isBinaural: true);
-            },
-          ),
-          SizedBox(height: 20),
-          const Text(
-            "Music for You",
-            style: TextStyle(
-                fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
-          ),
-          SizedBox(height: 10),
-          FutureBuilder<List<MusicItem>>(
-            future: _musicItems,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return Center(child: CircularProgressIndicator());
-              } else if (snapshot.hasError || snapshot.data!.isEmpty) {
-                return Center(
-                    child: Text("No music available",
-                        style: TextStyle(color: Colors.white)));
-              }
+                return MusicList(items: snapshot.data!, isBinaural: true);
+              },
+            ),
+            SizedBox(height: 20),
+            const Text(
+              "Music for You",
+              style: TextStyle(
+                  fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+            ),
+            SizedBox(height: 10),
+            FutureBuilder<List<MusicItem>>(
+              future: _musicItems,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return Center(child: CircularProgressIndicator());
+                } else if (snapshot.hasError || snapshot.data!.isEmpty) {
+                  return Center(
+                      child: Text("No music available",
+                          style: TextStyle(color: Colors.white)));
+                }
 
-              return MusicList(items: snapshot.data!, isBinaural: false);
-            },
-          ),
-        ],
+                return MusicList(items: snapshot.data!, isBinaural: false);
+              },
+            ),
+            // Player widget - scrolls with content (only visible when playing)
+            const SizedBox(height: 16),
+            AudioPlayerWidget(
+              musicList: _musicItems2!,
+              binauralList: _binauralItems2!,
+            ),
+          ],
+        ),
       ),
     );
   }

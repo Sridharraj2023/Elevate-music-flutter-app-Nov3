@@ -127,6 +127,17 @@ class BottomBarController extends GetxController {
   var currentBinauralIndex = 0.obs;
   var currentMusicIndex = 0.obs;
 
+  // UI state: which mini player is active (true = music, false = binaural)
+  var isMusicSelected = true.obs;
+
+  void selectMusic() {
+    isMusicSelected.value = true;
+  }
+
+  void selectBinaural() {
+    isMusicSelected.value = false;
+  }
+
   @override
   void onInit() {
     super.onInit();
